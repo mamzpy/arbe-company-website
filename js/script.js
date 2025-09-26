@@ -460,13 +460,430 @@ class ARBEWebsite {
                     backToTopBtn.classList.remove('visible');
                 }
             });
+            
+            // Smooth scroll to top
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        }
+    }
+
+    // Loading screen
+    setupLoader() {
+        const loader = document.getElementById('loader');
         
-        // Smooth scroll to
-               backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
+        if (loader) {
+            // Hide loader when page is fully loaded
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    loader.classList.add('hide');
+                    // Remove from DOM after animation
+                    setTimeout(() => {
+                        loader.remove();
+                    }, 500);
+                }, 1000); // Show loader for at least 1 second
+            });
+        }
+    }
+
+    // Product filtering and search (if needed in future)
+    setupProductFilter() {
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        const productCards = document.querySelectorAll('.category-card');
+
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const filter = button.dataset.filter;
+                
+                // Update active button
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                // Filter products
+                productCards.forEach(card => {
+                    if (filter === 'all' || card.dataset.category === filter) {
+                        card.style.display = 'block';
+                        card.classList.add('fade-in');
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
             });
         });
     }
+
+    // Performance optimization
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+}
+
+// Additional utility functions
+class ARBEUtils {
+    static formatPhoneNumber(phone) {
+        // Remove all non-digit characters
+        const cleaned = phone.replace(/\D/g, '');
+        
+        // Format Iranian phone numbers
+        if (cleaned.startsWith('98')) {
+            return `+${cleaned}`;
+        } else if (cleaned.startsWith('0')) {
+            return `+98${cleaned.substring(1)}`;
+        } else if (cleaned.length === 10) {
+            return `+98${cleaned}`;
+        }
+        
+        return phone;
+    }
+
+    static isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    static isValidPhone(phone) {
+        const phoneRegex = /^(\+98|0)?9\d{9}$/;
+        return phoneRegex.test(phone.replace(/\s|-/g, ''));
+    }
+
+    static sanitizeInput(input) {
+        const div = document.createElement('div');
+        div.textContent = input;
+        return div.innerHTML;
+    }
+
+    static copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'absolute';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                return Promise.resolve();
+            } catch (error) {
+                return Promise.reject(error);
+            } finally {
+                textArea.remove();
+            }
+        }
+    }
+
+    static detectDevice() {
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        
+        return {
+            isMobile: /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase()),
+            isTablet: /ipad|android(?!.*mobile)|tablet/i.test(userAgent.toLowerCase()),
+            isDesktop: !/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase()),
+            isIOS: /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream,
+            isAndroid: /android/i.test(userAgent.toLowerCase())
+        };
+    }
+}
+
+// Contact information click handlers
+class ContactHandlers {
+    static init() {
+        this.setupPhoneLinks();
+        this.setupEmailLinks();
+        this.setupAddressLinks();
+    }
+
+    static setupPhoneLinks() {
+        const phoneLinks = document.querySelectorAll('a[href^="tel:"]');
+        
+        phoneLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                const device = ARBEUtils.detectDevice();
+                
+                if (device.isDesktop) {
+                    e.preventDefault();
+                    const phone = link.textContent;
+                    
+                    ARBEUtils.copyToClipboard(phone).then(() => {
+                        this.showTooltip(link, 'شماره تلفن کپی شد');
+                    }).catch(() => {
+                        this.showTooltip(link, phone);
+                    });
+                }
+            });
+        });
+    }
+
+    static setupEmailLinks() {
+        const emailLinks = document.querySelectorAll('a[href^="mailto:"]');
+        
+        emailLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                const email = link.textContent;
+                
+                // Add copy functionality
+                link.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    ARBEUtils.copyToClipboard(email).then(() => {
+                        this.showTooltip(link, 'ایمیل کپی شد');
+                    });
+                });
+            });
+        });
+    }
+
+    static setupAddressLinks() {
+        const addressElements = document.querySelectorAll('[data-address]');
+        
+        addressElements.forEach(element => {
+            element.style.cursor = 'pointer';
+            element.title = 'کلیک کنید تا در نقشه باز شود';
+            
+            element.addEventListener('click', () => {
+                const address = element.dataset.address || element.textContent;
+                const encodedAddress = encodeURIComponent(address);
+                
+                // Try Google Maps first, fallback to other map services
+                const mapUrls = [
+                    `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
+                    `https://maps.apple.com/?q=${encodedAddress}`,
+                    `https://www.bing.com/maps?q=${encodedAddress}`
+                ];
+                
+                window.open(mapUrls[0], '_blank');
+            });
+        });
+    }
+
+    static showTooltip(element, message) {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = message;
+        
+        // Add tooltip styles if not exists
+        if (!document.querySelector('.tooltip-styles')) {
+            const tooltipStyles = document.createElement('style');
+            tooltipStyles.className = 'tooltip-styles';
+            tooltipStyles.textContent = `
+                .tooltip {
+                    position: absolute;
+                    background: var(--primary-dark);
+                    color: var(--accent-gold);
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-size: 0.875rem;
+                    white-space: nowrap;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    border: 1px solid var(--accent-gold);
+                    pointer-events: none;
+                }
+            `;
+            document.head.appendChild(tooltipStyles);
+        }
+        
+        document.body.appendChild(tooltip);
+        
+        const rect = element.getBoundingClientRect();
+        tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = rect.top - tooltip.offsetHeight - 8 + 'px';
+        
+        setTimeout(() => {
+            tooltip.remove();
+        }, 2000);
+    }
+}
+
+// Performance monitoring
+class PerformanceMonitor {
+    static init() {
+        if ('performance' in window) {
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    const perf = performance.getEntriesByType('navigation')[0];
+                    
+                    console.log('Performance Metrics:', {
+                        loadTime: Math.round(perf.loadEventEnd - perf.navigationStart),
+                        domContentLoaded: Math.round(perf.domContentLoadedEventEnd - perf.navigationStart),
+                        firstPaint: this.getFirstPaint(),
+                        firstContentfulPaint: this.getFirstContentfulPaint()
+                    });
+                }, 0);
+            });
+        }
+    }
+
+    static getFirstPaint() {
+        const perfEntries = performance.getEntriesByType('paint');
+        const firstPaint = perfEntries.find(entry => entry.name === 'first-paint');
+        return firstPaint ? Math.round(firstPaint.startTime) : null;
+    }
+
+    static getFirstContentfulPaint() {
+        const perfEntries = performance.getEntriesByType('paint');
+        const firstContentfulPaint = perfEntries.find(entry => entry.name === 'first-contentful-paint');
+        return firstContentfulPaint ? Math.round(firstContentfulPaint.startTime) : null;
+    }
+}
+
+// Accessibility enhancements
+class AccessibilityEnhancer {
+    static init() {
+        this.addKeyboardNavigation();
+        this.addFocusManagement();
+        this.addScreenReaderSupport();
+        this.addHighContrastSupport();
+    }
+
+    static addKeyboardNavigation() {
+        // Add keyboard support for mobile menu
+        const menuToggle = document.getElementById('menuToggle');
+        if (menuToggle) {
+            menuToggle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    menuToggle.click();
+                }
+            });
+        }
+
+        // Add keyboard support for back to top button
+        const backToTop = document.getElementById('backToTop');
+        if (backToTop) {
+            backToTop.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    backToTop.click();
+                }
+            });
+        }
+    }
+
+    static addFocusManagement() {
+        // Ensure focus is visible
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                document.body.classList.add('keyboard-navigation');
+            }
+        });
+
+        document.addEventListener('mousedown', () => {
+            document.body.classList.remove('keyboard-navigation');
+        });
+
+        // Add focus styles if not exists
+        if (!document.querySelector('.focus-styles')) {
+            const focusStyles = document.createElement('style');
+            focusStyles.className = 'focus-styles';
+            focusStyles.textContent = `
+                .keyboard-navigation *:focus {
+                    outline: 2px solid var(--accent-gold) !important;
+                    outline-offset: 2px !important;
+                }
+                .keyboard-navigation .btn:focus {
+                    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.3) !important;
+                }
+            `;
+            document.head.appendChild(focusStyles);
+        }
+    }
+
+    static addScreenReaderSupport() {
+        // Add ARIA labels where needed
+        const logo = document.querySelector('.logo');
+        if (logo && !logo.getAttribute('aria-label')) {
+            logo.setAttribute('aria-label', 'ARBE Company - شرکت بهبود دهنده نان لوتوس');
+        }
+
+        const menuToggle = document.getElementById('menuToggle');
+        if (menuToggle && !menuToggle.getAttribute('aria-label')) {
+            menuToggle.setAttribute('aria-label', 'Toggle navigation menu');
+            menuToggle.setAttribute('aria-expanded', 'false');
+        }
+
+        // Update aria-expanded when menu toggles
+        const navLinks = document.getElementById('navLinks');
+        if (navLinks && menuToggle) {
+            const observer = new MutationObserver(() => {
+                const isActive = navLinks.classList.contains('active');
+                menuToggle.setAttribute('aria-expanded', isActive.toString());
+            });
+            
+            observer.observe(navLinks, { attributes: true, attributeFilter: ['class'] });
+        }
+    }
+
+    static addHighContrastSupport() {
+        // Detect high contrast preference
+        if (window.matchMedia('(prefers-contrast: high)').matches) {
+            document.body.classList.add('high-contrast');
+        }
+
+        // Listen for changes
+        window.matchMedia('(prefers-contrast: high)').addListener((e) => {
+            if (e.matches) {
+                document.body.classList.add('high-contrast');
+            } else {
+                document.body.classList.remove('high-contrast');
+            }
+        });
+    }
+}
+
+// Initialize everything when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize main website functionality
+    const website = new ARBEWebsite();
+    
+    // Initialize additional features
+    ContactHandlers.init();
+    AccessibilityEnhancer.init();
+    PerformanceMonitor.init();
+    
+    console.log('ARBE Website initialized successfully');
+});
+
+// Service Worker registration (for future PWA support)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+                console.log('SW registration failed: ', registrationError);
+            });
+    });
+}
+
+// Export for potential module use
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { ARBEWebsite, ARBEUtils, ContactHandlers, AccessibilityEnhancer };
 }
