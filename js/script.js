@@ -460,5 +460,13 @@ class ARBEWebsite {
                     backToTopBtn.classList.remove('visible');
                 }
             });
-            
-            // Smooth scroll to
+        
+        // Smooth scroll to
+               backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    }
+}
